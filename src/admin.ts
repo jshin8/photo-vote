@@ -1,6 +1,19 @@
 import './style.css'
-import { BUCKET, isConfigured, photoUrl, supabase } from './supabase'
-import { $, byLine, CATEGORIES, dishTitle, el, EXTENSIONS, MAX_BYTES, poll, shrinkImage, type Category } from './shared'
+import { BUCKET, CACHE_SECONDS, isConfigured, supabase } from './supabase'
+import {
+  $,
+  byLine,
+  CATEGORIES,
+  dishTitle,
+  el,
+  EXTENSIONS,
+  makeThumbnail,
+  MAX_BYTES,
+  poll,
+  shrinkImage,
+  thumbImg,
+  type Category,
+} from './shared'
 
 type AdminResult = {
   entry_id: string
@@ -138,8 +151,21 @@ addForm.addEventListener('submit', async (e) => {
     if (reserve.error) throw reserve.error
     const path = reserve.data as string
 
-    const upload = await supabase.storage.from(BUCKET).upload(path, photo, { contentType: photo.type })
+    const upload = await supabase.storage
+      .from(BUCKET)
+      .upload(path, photo, { contentType: photo.type, cacheControl: CACHE_SECONDS })
     if (upload.error) throw upload.error
+
+    // Small thumbnail for the grid and results. If it fails, pages fall back to the full photo.
+    try {
+      const thumb = await makeThumbnail(file)
+      const thumbUpload = await supabase.storage
+        .from(BUCKET)
+        .upload(path.replace(/\.[a-z]+$/, '.thumb.jpg'), thumb, { contentType: 'image/jpeg', cacheControl: CACHE_SECONDS })
+      if (thumbUpload.error) console.warn('Thumbnail upload failed', thumbUpload.error)
+    } catch (err) {
+      console.warn('Thumbnail failed', err)
+    }
 
     const add = await supabase.rpc('admin_add_entry', {
       p_code: code,
@@ -241,7 +267,7 @@ function renderList(results: AdminResult[]) {
           edit.addEventListener('click', () => editEntry(r))
           const actions = el('div', { className: 'actions' })
           actions.append(edit, del)
-          li.append(el('img', { src: photoUrl(r.photo_path), alt: '' }), info, actions)
+          li.append(thumbImg(r.photo_path, { alt: '' }), info, actions)
           return li
         }),
       )

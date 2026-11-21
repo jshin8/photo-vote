@@ -1,7 +1,7 @@
 import './style.css'
 import { isConfigured, photoUrl, supabase } from './supabase'
 import winnerGif from './assets/winner-dance.gif'
-import { $, byLine, CATEGORIES, dishTitle, el, poll, type Category } from './shared'
+import { $, byLine, CATEGORIES, dishTitle, el, poll, thumbImg, type Category } from './shared'
 
 type Entry = { id: string; category: Category; name: string; dish: string | null; photo_path: string }
 type Result = {
@@ -233,7 +233,7 @@ function renderVoting() {
           const card = el('figure', { className: 'card' })
           card.dataset.id = entry.id
           const thumb = el('button', { type: 'button', className: 'thumb', ariaLabel: `View ${dishTitle(entry)}` })
-          thumb.append(el('img', { src: photoUrl(entry.photo_path), alt: dishTitle(entry), loading: 'lazy' }))
+          thumb.append(thumbImg(entry.photo_path, { alt: dishTitle(entry), loading: 'lazy' }))
           thumb.addEventListener('click', () => openViewer('vote', c.id, i))
           const button = el('button', { type: 'button', className: 'vote' })
           button.addEventListener('click', () => vote(entry.id))
@@ -289,7 +289,7 @@ function renderResults() {
         bar.style.width = `${(r.votes / max) * 100}%`
         track.append(bar)
         const thumb = el('button', { type: 'button', className: 'thumb', ariaLabel: `View ${dishTitle(r)}` })
-        thumb.append(el('img', { src: photoUrl(r.photo_path), alt: '' }))
+        thumb.append(thumbImg(r.photo_path, { alt: '' }))
         thumb.addEventListener('click', () => openViewer('results', c.id, i))
         // Leftmost column: celebration GIF for first place (each one, if tied), empty otherwise.
         const medal = el('span', { className: 'medal' })
