@@ -43,6 +43,22 @@
       </section>
     </main>
 
+    <dialog id="viewer" aria-label="Photo viewer">
+      <button type="button" class="viewer-close" aria-label="Close">✕</button>
+      <div class="viewer-stage">
+        <button type="button" class="viewer-nav" data-step="-1" aria-label="Previous photo">‹</button>
+        <img alt="" />
+        <button type="button" class="viewer-nav" data-step="1" aria-label="Next photo">›</button>
+      </div>
+      <div class="viewer-bar">
+        <div>
+          <strong class="viewer-name"></strong>
+          <span class="viewer-detail muted"></span>
+        </div>
+        <button type="button" class="viewer-vote"></button>
+      </div>
+    </dialog>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
