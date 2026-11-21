@@ -310,11 +310,12 @@ body.no-scroll { overflow: hidden; }
   border-radius: 999px;
   background: rgb(0 0 0 / 0.5);
   color: #fff;
-  font-size: 1.5rem;
-  line-height: 1;
 }
-.viewer-close { top: max(0.75rem, env(safe-area-inset-top)); right: 0.75rem; font-size: 1.1rem; }
-.viewer-nav { top: 50%; transform: translateY(-50%); font-size: 2rem; }
+/* Icons are inline SVG so they stay centred regardless of the button font. */
+.viewer-close svg, .viewer-nav svg { display: block; }
+.viewer-close { top: max(0.75rem, env(safe-area-inset-top)); right: 0.75rem; }
+.viewer-close svg { width: 18px; height: 18px; }
+.viewer-nav { top: 50%; transform: translateY(-50%); }
 .viewer-nav[data-step='-1'] { left: 0.5rem; }
 .viewer-nav[data-step='1'] { right: 0.5rem; }
 
