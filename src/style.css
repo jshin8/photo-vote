@@ -292,8 +292,6 @@ body.no-scroll { overflow: hidden; }
   border-color: var(--accent);
   color: var(--accent-fg);
 }
-.tabs button[aria-selected='true'] .tick { color: inherit; }
-.tabs .tick { color: var(--accent); }
 
 section.category { margin-block: 1.5rem 2.5rem; }
 section.category h3 { margin-bottom: 0.25rem; }

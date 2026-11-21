@@ -82,7 +82,6 @@ function renderTabs() {
   tabs.querySelectorAll<HTMLButtonElement>('[role=tab]').forEach((tab) => {
     const c = tab.dataset.category as Category
     tab.setAttribute('aria-selected', String(c === state.tab))
-    tab.querySelector('.tick')!.textContent = state.myVotes[c] ? '✓' : ''
   })
   for (const c of CATEGORIES) {
     voteBlocks.get(c.id)!.panel.hidden = c.id !== state.tab
@@ -192,7 +191,7 @@ function render() {
 
 function voteLabel(entry: { id: string; category: Category }) {
   const mine = state.myVotes[entry.category]
-  return entry.id === mine ? '✓ Your vote' : mine ? 'Switch to this' : 'Vote'
+  return entry.id === mine ? 'Your vote' : mine ? 'Switch to this' : 'Vote'
 }
 
 function renderVoting() {
@@ -214,7 +213,7 @@ function renderVoting() {
     block.status.textContent = !entries.length
       ? `No ${c.label.toLowerCase()} yet.`
       : mine
-        ? `✓ You voted for ${mine.name}.`
+        ? `You voted for ${mine.name}.`
         : `Pick your favourite ${c.singular}.`
 
     // Rebuild cards only when entries change, so images don't flicker on each poll.
