@@ -9,6 +9,7 @@ type Result = { entry_id: string; category: Category; name: string; photo_path: 
 // database keeps one vote per (id, category), changeable until results are revealed.
 const VOTER_KEY = 'photo-vote:voter-id'
 const NAME_KEY = 'photo-vote:voter-name'
+const TAB_KEY = 'photo-vote:tab'
 
 function voterId(): string {
   let id = localStorage.getItem(VOTER_KEY)
@@ -27,6 +28,7 @@ const state = {
   results: [] as Result[],
   busy: false,
   error: '',
+  tab: (sessionStorage.getItem(TAB_KEY) === 'dessert' ? 'dessert' : 'entree') as Category,
 }
 
 const nameStep = $('#name-step')
@@ -46,22 +48,46 @@ const entriesIn = (c: Category) => state.entries.filter((e) => e.category === c)
 const resultsIn = (c: Category) => state.results.filter((r) => r.category === c)
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
-// One block per category, built once: heading, status line, grid / results list.
-const voteBlocks = new Map<Category, { status: HTMLElement; grid: HTMLElement; key: string }>()
-const resultBlocks = new Map<Category, { list: HTMLElement; key: string }>()
+// One panel per category, built once; the tabs show one at a time.
+const voteBlocks = new Map<Category, { panel: HTMLElement; status: HTMLElement; grid: HTMLElement; key: string }>()
+const resultBlocks = new Map<Category, { panel: HTMLElement; list: HTMLElement; key: string }>()
 for (const c of CATEGORIES) {
-  const section = el('section', { className: 'category', id: `vote-${c.id}` })
+  const panel = el('div', { className: 'category' })
+  panel.setAttribute('role', 'tabpanel')
   const status = el('p', { className: 'status' })
   const grid = el('div', { className: 'grid' })
-  section.append(el('h2', { textContent: c.label }), status, grid)
-  $('#vote-categories').append(section)
-  voteBlocks.set(c.id, { status, grid, key: '' })
+  panel.append(status, grid)
+  $('#vote-categories').append(panel)
+  voteBlocks.set(c.id, { panel, status, grid, key: '' })
 
-  const rsection = el('section', { className: 'category' })
+  const rpanel = el('div', { className: 'category' })
+  rpanel.setAttribute('role', 'tabpanel')
   const list = el('ol', { className: 'results-list' })
-  rsection.append(el('h3', { textContent: c.label }), list)
-  $('#results-categories').append(rsection)
-  resultBlocks.set(c.id, { list, key: '' })
+  rpanel.append(list)
+  $('#results-categories').append(rpanel)
+  resultBlocks.set(c.id, { panel: rpanel, list, key: '' })
+}
+
+const tabs = $('#tabs')
+tabs.querySelectorAll<HTMLButtonElement>('[role=tab]').forEach((tab) =>
+  tab.addEventListener('click', () => {
+    state.tab = tab.dataset.category as Category
+    sessionStorage.setItem(TAB_KEY, state.tab)
+    render()
+    if (tabs.getBoundingClientRect().top < 0) tabs.scrollIntoView()
+  }),
+)
+
+function renderTabs() {
+  tabs.querySelectorAll<HTMLButtonElement>('[role=tab]').forEach((tab) => {
+    const c = tab.dataset.category as Category
+    tab.setAttribute('aria-selected', String(c === state.tab))
+    tab.querySelector('.tick')!.textContent = state.myVotes[c] ? '✓' : ''
+  })
+  for (const c of CATEGORIES) {
+    voteBlocks.get(c.id)!.panel.hidden = c.id !== state.tab
+    resultBlocks.get(c.id)!.panel.hidden = c.id !== state.tab
+  }
 }
 
 // ---------- Name ----------
@@ -156,6 +182,8 @@ function render() {
 
   voteSection.hidden = !hasName || state.resultsVisible
   resultsSection.hidden = !state.resultsVisible
+  tabs.hidden = voteSection.hidden && resultsSection.hidden
+  renderTabs()
 
   if (state.resultsVisible) renderResults()
   else if (hasName) renderVoting()
@@ -168,14 +196,16 @@ function voteLabel(entry: { id: string; category: Category }) {
 }
 
 function renderVoting() {
-  const done = CATEGORIES.filter((c) => state.myVotes[c.id]).length
+  const missing = CATEGORIES.filter((c) => !state.myVotes[c.id])
   voteStatus.textContent =
     state.error ||
     (!state.entries.length
       ? 'No photos yet. Check back soon.'
-      : done === CATEGORIES.length
+      : !missing.length
         ? 'Thanks for voting! You can change your votes until the results are revealed.'
-        : 'You get one vote for entrées and one for desserts.')
+        : missing.length < CATEGORIES.length
+          ? `Don't forget to vote for ${missing.map((c) => c.label.toLowerCase()).join(' and ')} too.`
+          : 'You get one vote for entrées and one for desserts.')
 
   for (const c of CATEGORIES) {
     const block = voteBlocks.get(c.id)!
@@ -186,7 +216,6 @@ function renderVoting() {
       : mine
         ? `✓ You voted for ${mine.name}.`
         : `Pick your favourite ${c.singular}.`
-    $(`.tabs [data-category="${c.id}"] .tick`).textContent = mine ? '✓' : ''
 
     // Rebuild cards only when entries change, so images don't flicker on each poll.
     const key = JSON.stringify(entries)

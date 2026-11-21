@@ -278,21 +278,28 @@ body.no-scroll { overflow: hidden; }
   background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
-.tabs a {
+.tabs button {
   flex: 1;
-  padding: 0.5rem;
-  text-align: center;
-  text-decoration: none;
-  font-weight: 600;
+  padding: 0.6rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--card);
+  color: var(--fg);
+  font-weight: 600;
 }
+.tabs button[aria-selected='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+.tabs button[aria-selected='true'] .tick { color: inherit; }
 .tabs .tick { color: var(--accent); }
 
-section.category { margin-block: 1.5rem 2.5rem; scroll-margin-top: 4rem; }
-section.category h2, section.category h3 { margin-bottom: 0.25rem; }
-#vote > .status { margin-top: 0.5rem; }
+section.category { margin-block: 1.5rem 2.5rem; }
+section.category h3 { margin-bottom: 0.25rem; }
+#vote, #results { margin-top: 0.5rem; }
+div.category > .status { margin-bottom: 0.75rem; font-weight: 600; color: var(--fg); }
+#results h2 { margin-top: 0; }
 
 fieldset.choice {
   display: flex;

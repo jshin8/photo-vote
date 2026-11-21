@@ -30,11 +30,12 @@
         </form>
       </section>
 
+      <nav id="tabs" class="tabs" role="tablist" aria-label="Categories" hidden>
+        <button type="button" role="tab" data-category="entree">Entrées <span class="tick"></span></button>
+        <button type="button" role="tab" data-category="dessert">Desserts <span class="tick"></span></button>
+      </nav>
+
       <section id="vote" hidden>
-        <nav class="tabs" aria-label="Categories">
-          <a href="#vote-entree" data-category="entree">Entrées <span class="tick"></span></a>
-          <a href="#vote-dessert" data-category="dessert">Desserts <span class="tick"></span></a>
-        </nav>
         <p class="status" id="vote-status" role="status"></p>
         <div id="vote-categories"></div>
       </section>
