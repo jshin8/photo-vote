@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 
 // Relative base so the built site works under https://<user>.github.io/photo-vote/
-// Two pages: the voting page (/) and the admin page (/admin/).
+// Pages: voting (/), admin (/admin/), and a printable QR code (/qr/).
 export default defineConfig({
   base: './',
   build: {
@@ -9,6 +9,7 @@ export default defineConfig({
       input: {
         main: 'index.html',
         admin: 'admin/index.html',
+        qr: 'qr/index.html',
       },
     },
   },
