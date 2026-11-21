@@ -291,9 +291,13 @@ function renderResults() {
         const thumb = el('button', { type: 'button', className: 'thumb', ariaLabel: `View ${dishTitle(r)}` })
         thumb.append(el('img', { src: photoUrl(r.photo_path), alt: '' }))
         thumb.addEventListener('click', () => openViewer('results', c.id, i))
+        // Leftmost column: celebration GIF for first place (each one, if tied), empty otherwise.
+        const medal = el('span', { className: 'medal' })
+        if (isWinner) medal.append(el('img', { className: 'winner-gif', src: winnerGif, alt: '' }))
         li.append(
+          medal,
           thumb,
-          nameBlock(r, isWinner),
+          nameBlock(r),
           track,
           el('span', { className: 'count', textContent: plural(r.votes, 'vote') }),
         )
@@ -303,13 +307,11 @@ function renderResults() {
   }
 }
 
-function nameBlock(r: Result, isWinner = false) {
+function nameBlock(r: Result) {
   const span = el('span', { className: 'name' })
   const text = el('span', { className: 'text' })
   text.append(el('span', { className: 'dish', textContent: dishTitle(r) }))
   if (byLine(r)) text.append(el('span', { className: 'by', textContent: byLine(r) }))
-  // Celebration GIF to the left of the first-place dish name (each one, if tied).
-  if (isWinner) span.append(el('img', { className: 'winner-gif', src: winnerGif, alt: '' }))
   span.append(text)
   return span
 }
