@@ -8,8 +8,8 @@ export const EXTENSIONS: Record<string, string> = {
 
 export type Category = 'entree' | 'dessert'
 export const CATEGORIES: { id: Category; label: string; singular: string }[] = [
-  { id: 'entree', label: 'Entrées', singular: 'entrée' },
-  { id: 'dessert', label: 'Desserts', singular: 'dessert' },
+  { id: 'entree', label: 'Savory', singular: 'savory dish' },
+  { id: 'dessert', label: 'Sweet', singular: 'sweet dish' },
 ]
 
 export const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel)!

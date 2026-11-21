@@ -209,7 +209,7 @@ function renderList(results: AdminResult[]) {
           return li
         }),
       )
-      if (!items.length) list.append(el('li', { className: 'muted', textContent: `No ${c.label.toLowerCase()} yet.` }))
+      if (!items.length) list.append(el('li', { className: 'muted', textContent: `No ${c.label.toLowerCase()} dishes yet.` }))
       section.append(list)
       return section
     }),

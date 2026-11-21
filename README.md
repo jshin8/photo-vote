@@ -2,7 +2,7 @@
 
 A small site for a photo vote. The admin uploads photos on `/admin/`; voters open the landing page, enter their name and vote. The admin decides when results are revealed.
 
-- **Two categories:** entrées and desserts. Each voter gets one vote in each.
+- **Two categories:** savory and sweet (stored as `entree` and `dessert`). Each voter gets one vote in each.
 - **Voting page** (`/`): asks for the voter's name, then shows the photos by category. One vote per browser per category, changeable until results are revealed. When the admin reveals results, voting closes and everyone sees the counts (the page updates on its own every few seconds).
 - **Admin page** (`/admin/`): passcode login. Add and delete photos, see each photo's votes and voter names, and show/hide results.
 

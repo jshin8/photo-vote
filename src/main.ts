@@ -204,14 +204,14 @@ function renderVoting() {
         ? 'Thanks for voting! You can change your votes until the results are revealed.'
         : missing.length < CATEGORIES.length
           ? `Don't forget to vote for ${missing.map((c) => c.label.toLowerCase()).join(' and ')} too.`
-          : 'You get one vote for entrées and one for desserts.')
+          : 'You get one vote for savory and one for sweet.')
 
   for (const c of CATEGORIES) {
     const block = voteBlocks.get(c.id)!
     const entries = entriesIn(c.id)
     const mine = entries.find((e) => e.id === state.myVotes[c.id])
     block.status.textContent = !entries.length
-      ? `No ${c.label.toLowerCase()} yet.`
+      ? `No ${c.label.toLowerCase()} dishes yet.`
       : mine
         ? `You voted for ${mine.name}.`
         : `Pick your favourite ${c.singular}.`
@@ -263,7 +263,7 @@ function renderResults() {
     block.key = key
 
     if (!results.length) {
-      block.list.replaceChildren(el('li', { className: 'muted', textContent: `No ${c.label.toLowerCase()}.` }))
+      block.list.replaceChildren(el('li', { className: 'muted', textContent: `No ${c.label.toLowerCase()} dishes.` }))
       continue
     }
     const max = Math.max(1, ...results.map((r) => r.votes))
