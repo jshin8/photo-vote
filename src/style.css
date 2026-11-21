@@ -162,18 +162,28 @@ button.thumb {
 .results-list { padding: 0; list-style: none; display: grid; gap: 0.75rem; }
 .results-list li {
   display: grid;
-  grid-template-columns: 6rem minmax(6rem, 10rem) 1fr auto;
+  /* Dish name gets the larger share; the bar only needs enough room to compare. */
+  grid-template-columns: 6rem minmax(0, 3fr) minmax(5rem, 2fr) 4.5rem;
   align-items: center;
   gap: 0.75rem;
 }
 .results-list .thumb img { display: block; width: 6rem; height: 6rem; object-fit: cover; border-radius: 8px; }
 .name { min-width: 0; }
-.name .dish, .name .by { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.name .dish { font-weight: 600; }
+.name .dish, .name .by { display: block; overflow-wrap: anywhere; }
+/* Long dish names wrap to a second line, then truncate. */
+.name .dish {
+  font-weight: 600;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
 .by { display: block; color: var(--muted); font-size: 0.85rem; font-weight: 400; }
 .track { height: 0.75rem; background: var(--border); border-radius: 999px; overflow: hidden; }
 .bar { display: block; height: 100%; background: var(--accent); }
-.count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.count { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
 .results-list li.winner .dish::after { content: ' 🏆'; }
 
@@ -198,15 +208,13 @@ button.thumb {
 .admin-item img { width: 4rem; height: 4rem; object-fit: cover; border-radius: 6px; }
 .voters { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.875rem; }
 
-/* Phones: name and count on the first line, bar underneath, thumbnail spanning both. */
+/* Phones: dish name gets the full width; bar and count share the line below. */
 @media (max-width: 480px) {
-  .results-list li { grid-template-columns: 6rem 1fr auto; row-gap: 0.35rem; align-content: center; }
-  .results-list .name, .results-list .count { align-self: end; }
-  .results-list .track { align-self: start; }
+  .results-list li { grid-template-columns: 6rem 1fr 4.5rem; row-gap: 0.35rem; align-content: center; }
   .results-list .thumb { grid-row: 1 / span 2; }
-  .results-list .name { grid-column: 2; grid-row: 1; }
-  .results-list .count { grid-column: 3; grid-row: 1; }
-  .results-list .track { grid-column: 2 / -1; grid-row: 2; }
+  .results-list .name { grid-column: 2 / -1; grid-row: 1; align-self: end; }
+  .results-list .track { grid-column: 2; grid-row: 2; align-self: center; }
+  .results-list .count { grid-column: 3; grid-row: 2; align-self: center; }
 }
 
 /* ---------- Photo viewer ---------- */
