@@ -28,18 +28,18 @@
       h1 { margin: 0; font-size: calc(7 * var(--u)); line-height: 1.05; letter-spacing: -0.01em; }
       .tagline { margin: 0; font-size: calc(4 * var(--u)); font-weight: 600; }
 
-      /* Snoopy on the left, bottom-aligned; QR raised to his right, above his eye line. */
+      /* Snoopy on the left, QR to his right at the same height. */
       .scene { display: flex; align-items: flex-end; gap: calc(3 * var(--u)); }
       .snoopy { display: block; height: calc(50 * var(--u)); width: auto; }
       .qr {
         position: relative;
         z-index: 1; /* keep the code above the artwork's falling leaves */
-        margin-bottom: calc(12 * var(--u));
+        margin-bottom: 0;
         border-radius: calc(1.5 * var(--u));
         overflow: hidden;
         box-shadow: 0 calc(0.6 * var(--u)) calc(2 * var(--u)) rgb(0 0 0 / 0.25);
       }
-      .qr svg { display: block; width: calc(40 * var(--u)); height: auto; }
+      .qr svg { display: block; width: calc(50 * var(--u)); height: auto; } /* same height as Snoopy */
 
       .url { margin: 0; font-size: max(16px, calc(2.6 * var(--u))); font-weight: 600; overflow-wrap: anywhere; }
 
