@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Photo Vote</title>
+  </head>
+  <body>
+    <header>
+      <h1>Photo Vote</h1>
+      <nav>
+        <a href="#submit">Submit</a>
+        <a href="#vote">Vote</a>
+        <a href="#results">Results</a>
+      </nav>
+    </header>
+
+    <main>
+      <p id="setup-warning" class="notice" hidden>
+        Supabase isn't configured. Copy <code>.env.example</code> to <code>.env.local</code> and fill it in.
+      </p>
+
+      <section id="submit">
+        <h2>Submit an entry</h2>
+        <form id="submit-form">
+          <label>
+            Name
+            <input name="name" type="text" maxlength="60" required />
+          </label>
+          <label>
+            Photo (JPEG, PNG, WebP or GIF, up to 5 MB)
+            <input name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/gif" required />
+          </label>
+          <button type="submit">Submit</button>
+          <p class="status" id="submit-status" role="status"></p>
+        </form>
+      </section>
+
+      <section id="vote">
+        <h2>Vote</h2>
+        <p class="status" id="vote-status" role="status"></p>
+        <div id="entries" class="grid"></div>
+      </section>
+
+      <section id="results">
+        <h2>Results <button id="refresh" type="button" class="secondary">Refresh</button></h2>
+        <ol id="results-list"></ol>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
