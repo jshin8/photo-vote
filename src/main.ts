@@ -1,5 +1,6 @@
 import './style.css'
 import { isConfigured, photoUrl, supabase } from './supabase'
+import winnerGif from './assets/winner-dance.gif'
 import { $, byLine, CATEGORIES, dishTitle, el, poll, type Category } from './shared'
 
 type Entry = { id: string; category: Category; name: string; dish: string | null; photo_path: string }
@@ -281,7 +282,8 @@ function renderResults() {
     block.list.replaceChildren(
       ...results.map((r, i) => {
         const li = el('li')
-        if (top > 0 && r.votes === top) li.classList.add('winner')
+        const isWinner = top > 0 && r.votes === top
+        if (isWinner) li.classList.add('winner')
         const track = el('span', { className: 'track' })
         const bar = el('span', { className: 'bar' })
         bar.style.width = `${(r.votes / max) * 100}%`
@@ -291,7 +293,7 @@ function renderResults() {
         thumb.addEventListener('click', () => openViewer('results', c.id, i))
         li.append(
           thumb,
-          nameBlock(r),
+          nameBlock(r, isWinner),
           track,
           el('span', { className: 'count', textContent: plural(r.votes, 'vote') }),
         )
@@ -301,10 +303,14 @@ function renderResults() {
   }
 }
 
-function nameBlock(r: Result) {
+function nameBlock(r: Result, isWinner = false) {
   const span = el('span', { className: 'name' })
-  span.append(el('span', { className: 'dish', textContent: dishTitle(r) }))
-  if (byLine(r)) span.append(el('span', { className: 'by', textContent: byLine(r) }))
+  const text = el('span', { className: 'text' })
+  text.append(el('span', { className: 'dish', textContent: dishTitle(r) }))
+  if (byLine(r)) text.append(el('span', { className: 'by', textContent: byLine(r) }))
+  span.append(text)
+  // Celebration GIF beside the first-place dish (each one, if tied).
+  if (isWinner) span.append(el('img', { className: 'winner-gif', src: winnerGif, alt: '' }))
   return span
 }
 
