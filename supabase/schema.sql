@@ -19,6 +19,13 @@ create table if not exists public.votes (
 
 create index if not exists votes_entry_id_idx on public.votes (entry_id);
 
+-- ---------- Table privileges ----------
+-- Newer Supabase projects don't grant the public roles access to new tables automatically.
+-- These grants let the roles reach the tables at all; the RLS policies below decide which rows.
+
+grant select, insert on public.entries to anon, authenticated;
+grant insert         on public.votes   to anon, authenticated;
+
 -- ---------- Row Level Security ----------
 -- The public key is shipped to every browser, so these policies are the real access control.
 
