@@ -12,6 +12,15 @@ export const CATEGORIES: { id: Category; label: string; singular: string }[] = [
   { id: 'dessert', label: 'Sweet', singular: 'sweet dish' },
 ]
 
+/** Display title for an entry: the dish name, falling back to the person's name for older entries. */
+export function dishTitle(e: { name: string; dish: string | null }) {
+  return e.dish || e.name
+}
+/** "by <person>" line, shown only when there is a separate dish name. */
+export function byLine(e: { name: string; dish: string | null }) {
+  return e.dish ? `by ${e.name}` : ''
+}
+
 export const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel)!
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}) {

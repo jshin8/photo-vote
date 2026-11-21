@@ -1,9 +1,16 @@
 import './style.css'
 import { isConfigured, photoUrl, supabase } from './supabase'
-import { $, CATEGORIES, el, poll, type Category } from './shared'
+import { $, byLine, CATEGORIES, dishTitle, el, poll, type Category } from './shared'
 
-type Entry = { id: string; category: Category; name: string; photo_path: string }
-type Result = { entry_id: string; category: Category; name: string; photo_path: string; votes: number }
+type Entry = { id: string; category: Category; name: string; dish: string | null; photo_path: string }
+type Result = {
+  entry_id: string
+  category: Category
+  name: string
+  dish: string | null
+  photo_path: string
+  votes: number
+}
 
 // "One vote per browser per category": a random id kept in localStorage. The
 // database keeps one vote per (id, category), changeable until results are revealed.
@@ -145,7 +152,7 @@ let loadedMyVotes = false
 async function refresh() {
   const [visible, entries] = await Promise.all([
     supabase.rpc('results_visible'),
-    supabase.from('entries').select('id, category, name, photo_path').order('created_at', { ascending: true }),
+    supabase.from('entries').select('id, category, name, dish, photo_path').order('created_at', { ascending: true }),
   ])
   if (visible.error || entries.error) {
     console.error(visible.error ?? entries.error)
@@ -213,7 +220,7 @@ function renderVoting() {
     block.status.textContent = !entries.length
       ? `No ${c.label.toLowerCase()} dishes yet.`
       : mine
-        ? `You voted for ${mine.name}.`
+        ? `You voted for ${dishTitle(mine)}.`
         : `Pick your favourite ${c.singular}.`
 
     // Rebuild cards only when entries change, so images don't flicker on each poll.
@@ -224,12 +231,15 @@ function renderVoting() {
         ...entries.map((entry, i) => {
           const card = el('figure', { className: 'card' })
           card.dataset.id = entry.id
-          const thumb = el('button', { type: 'button', className: 'thumb', ariaLabel: `View ${entry.name}` })
-          thumb.append(el('img', { src: photoUrl(entry.photo_path), alt: entry.name, loading: 'lazy' }))
+          const thumb = el('button', { type: 'button', className: 'thumb', ariaLabel: `View ${dishTitle(entry)}` })
+          thumb.append(el('img', { src: photoUrl(entry.photo_path), alt: dishTitle(entry), loading: 'lazy' }))
           thumb.addEventListener('click', () => openViewer('vote', c.id, i))
           const button = el('button', { type: 'button', className: 'vote' })
           button.addEventListener('click', () => vote(entry.id))
-          card.append(thumb, el('figcaption', { textContent: entry.name }), button)
+          const caption = el('figcaption')
+          caption.append(el('span', { className: 'dish', textContent: dishTitle(entry) }))
+          if (byLine(entry)) caption.append(el('span', { className: 'by', textContent: byLine(entry) }))
+          card.append(thumb, caption, button)
           return card
         }),
       )
@@ -252,7 +262,7 @@ function renderResults() {
     (r): r is Result => Boolean(r),
   )
   resultsStatus.textContent = picks.length
-    ? `Voting is closed. You voted for ${picks.map((p) => p.name).join(' and ')}.`
+    ? `Voting is closed. You voted for ${picks.map(dishTitle).join(' and ')}.`
     : 'Voting is closed.'
 
   for (const c of CATEGORIES) {
@@ -276,12 +286,12 @@ function renderResults() {
         const bar = el('span', { className: 'bar' })
         bar.style.width = `${(r.votes / max) * 100}%`
         track.append(bar)
-        const thumb = el('button', { type: 'button', className: 'thumb', ariaLabel: `View ${r.name}` })
+        const thumb = el('button', { type: 'button', className: 'thumb', ariaLabel: `View ${dishTitle(r)}` })
         thumb.append(el('img', { src: photoUrl(r.photo_path), alt: '' }))
         thumb.addEventListener('click', () => openViewer('results', c.id, i))
         li.append(
           thumb,
-          el('span', { className: 'name', textContent: r.name }),
+          nameBlock(r),
           track,
           el('span', { className: 'count', textContent: plural(r.votes, 'vote') }),
         )
@@ -289,6 +299,13 @@ function renderResults() {
       }),
     )
   }
+}
+
+function nameBlock(r: Result) {
+  const span = el('span', { className: 'name' })
+  span.append(el('span', { className: 'dish', textContent: dishTitle(r) }))
+  if (byLine(r)) span.append(el('span', { className: 'by', textContent: byLine(r) }))
+  return span
 }
 
 // ---------- Photo viewer ----------
@@ -305,6 +322,7 @@ function viewItems() {
         id: r.entry_id,
         category: r.category,
         name: r.name,
+        dish: r.dish,
         photo_path: r.photo_path,
         detail: plural(r.votes, 'vote'),
       }))
@@ -327,10 +345,12 @@ function renderViewer() {
   viewIndex = Math.min(viewIndex, items.length - 1)
   const item = items[viewIndex]
   if (!viewerImg.src.endsWith(item.photo_path)) viewerImg.src = photoUrl(item.photo_path)
-  viewerImg.alt = item.name
-  viewerName.textContent = item.name
+  viewerImg.alt = dishTitle(item)
+  viewerName.textContent = dishTitle(item)
   const label = CATEGORIES.find((c) => c.id === viewCategory)!.label
-  viewerDetail.textContent = [item.detail, `${label} ${viewIndex + 1} of ${items.length}`].filter(Boolean).join(' · ')
+  viewerDetail.textContent = [byLine(item), item.detail, `${label} ${viewIndex + 1} of ${items.length}`]
+    .filter(Boolean)
+    .join(' · ')
   viewerVote.hidden = viewMode !== 'vote'
   viewerVote.textContent = voteLabel(item)
   viewerVote.dataset.id = item.id

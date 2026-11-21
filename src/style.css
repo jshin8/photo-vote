@@ -124,6 +124,7 @@ button.secondary {
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
+.card figcaption .dish { display: block; }
 .card button.vote { padding: 0.45rem 0.5rem; font-size: 0.875rem; }
 .card button.vote:disabled:not(.secondary) { opacity: 1; }
 
@@ -166,12 +167,15 @@ button.thumb {
   gap: 0.75rem;
 }
 .results-list .thumb img { display: block; width: 6rem; height: 6rem; object-fit: cover; border-radius: 8px; }
-.name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.name { min-width: 0; }
+.name .dish, .name .by { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.name .dish { font-weight: 600; }
+.by { display: block; color: var(--muted); font-size: 0.85rem; font-weight: 400; }
 .track { height: 0.75rem; background: var(--border); border-radius: 999px; overflow: hidden; }
 .bar { display: block; height: 100%; background: var(--accent); }
 .count { color: var(--muted); font-variant-numeric: tabular-nums; }
 
-.results-list li.winner .name::after { content: ' 🏆'; }
+.results-list li.winner .dish::after { content: ' 🏆'; }
 
 .toggle-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
 .toggle-row .notice { margin: 0; font-weight: 600; }
@@ -189,6 +193,8 @@ button.thumb {
   border-radius: 10px;
 }
 .admin-item.winner { border-color: var(--accent); }
+.admin-item .actions { display: flex; flex-direction: column; gap: 0.4rem; }
+.admin-item .by { margin-top: 0.1rem; }
 .admin-item img { width: 4rem; height: 4rem; object-fit: cover; border-radius: 6px; }
 .voters { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.875rem; }
 
