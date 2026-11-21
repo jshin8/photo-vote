@@ -12,7 +12,7 @@
         --bg: #ca5220;
         --u: min(1.05vw, 1.06dvh);
         color-scheme: light;
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family: 'Patrick Hand', 'Comic Sans MS', system-ui, sans-serif;
       }
       * { box-sizing: border-box; }
       body {
@@ -25,8 +25,8 @@
         text-align: center;
       }
       main { display: grid; justify-items: center; gap: calc(2 * var(--u)); padding: calc(3 * var(--u)); }
-      h1 { margin: 0; font-size: calc(7 * var(--u)); line-height: 1.05; letter-spacing: -0.01em; }
-      .tagline { margin: 0; font-size: calc(4 * var(--u)); font-weight: 600; }
+      h1 { margin: 0; font-size: calc(8 * var(--u)); font-weight: 400; line-height: 1.05; letter-spacing: 0.01em; }
+      .tagline { margin: 0; font-size: calc(4.6 * var(--u)); font-weight: 400; }
 
       /* Snoopy on the left, QR to his right at the same height. */
       .scene { display: flex; align-items: flex-end; gap: calc(5 * var(--u)); }
@@ -36,7 +36,7 @@
       .qr { position: relative; z-index: 1; }
       .qr svg { display: block; width: calc(50 * var(--u)); height: auto; } /* same height as Snoopy */
 
-      .url { margin: 0; font-size: max(16px, calc(2.6 * var(--u))); font-weight: 600; overflow-wrap: anywhere; }
+      .url { margin: 0; font-size: max(18px, calc(3 * var(--u))); font-weight: 400; overflow-wrap: anywhere; }
 
       @media print {
         body { min-height: auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -54,5 +54,6 @@
       </div>
       <p class="url">jshin8.github.io/photo-vote</p>
     </main>
+    <script type="module" src="/src/qr.ts"></script>
   </body>
 </html>
