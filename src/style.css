@@ -163,15 +163,24 @@ button.thumb {
 .results-list li {
   display: grid;
   /* Dish name gets the larger share; the bar only needs enough room to compare. */
-  grid-template-columns: 6rem 6rem minmax(0, 3fr) minmax(5rem, 2fr) 4.5rem;
+  grid-template-columns: 6rem minmax(0, 3fr) minmax(5rem, 2fr) 4.5rem;
   align-items: center;
   gap: 0.75rem;
 }
 .results-list .thumb img { display: block; width: 6rem; height: 6rem; object-fit: cover; border-radius: 8px; }
 .name { min-width: 0; }
-.medal { display: flex; justify-content: center; }
+.results-list li { position: relative; }
+/* Winner GIF sits outside the list's columns so the list itself doesn't move.
+   Default (narrower screens): dancing on the photo's bottom-left corner. */
+.medal { position: absolute; left: -0.5rem; bottom: -0.4rem; z-index: 1; pointer-events: none; }
+.medal:empty { display: none; }
 /* Transparent GIF; a soft shadow keeps white Snoopy visible on the light background. */
-.winner-gif { display: block; height: 6rem; width: auto; max-width: 100%; filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.45)) drop-shadow(0 1px 2px rgb(0 0 0 / 0.15)); }
+.winner-gif { display: block; height: 3.5rem; width: auto; filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.45)) drop-shadow(0 1px 2px rgb(0 0 0 / 0.15)); }
+/* Wide screens: in the margin to the left of the photo. */
+@media (min-width: 1160px) {
+  .winner-gif { height: 6rem; }
+  .medal { left: auto; bottom: auto; right: calc(100% + 0.75rem); top: 50%; transform: translateY(-50%); }
+}
 .name .dish, .name .by { display: block; overflow-wrap: anywhere; }
 /* Long dish names wrap to a second line, then truncate. */
 .name .dish {
@@ -211,16 +220,13 @@ button.thumb {
 .admin-item img { width: 4rem; height: 4rem; object-fit: cover; border-radius: 6px; }
 .voters { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.875rem; }
 
-/* Phones: GIF column and thumbnail span both lines; dish name on top, bar and count below. */
+/* Phones: dish name gets the full width; bar and count share the line below. */
 @media (max-width: 480px) {
-  .results-list li { grid-template-columns: 3.5rem 6rem 1fr 4.5rem; column-gap: 0.6rem; row-gap: 0.35rem; align-content: center; }
-  .results-list .medal { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
-  .results-list .thumb { grid-column: 2; grid-row: 1 / span 2; }
-  .results-list .name { grid-column: 3 / -1; grid-row: 1; align-self: end; }
-  .results-list .track { grid-column: 3; grid-row: 2; align-self: center; }
-  .results-list .count { grid-column: 4; grid-row: 2; align-self: center; }
-  .winner-gif { height: auto; width: 100%; }
-  .results-list .name .dish { -webkit-line-clamp: 3; line-clamp: 3; }
+  .results-list li { grid-template-columns: 6rem 1fr 4.5rem; row-gap: 0.35rem; align-content: center; }
+  .results-list .thumb { grid-column: 1; grid-row: 1 / span 2; }
+  .results-list .name { grid-column: 2 / -1; grid-row: 1; align-self: end; }
+  .results-list .track { grid-column: 2; grid-row: 2; align-self: center; }
+  .results-list .count { grid-column: 3; grid-row: 2; align-self: center; }
 }
 
 /* ---------- Photo viewer ---------- */
