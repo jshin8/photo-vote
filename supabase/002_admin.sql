@@ -219,7 +219,8 @@ set search_path = ''
 as $$
 begin
   perform private.require_admin(p_code);
-  update private.settings set results_visible = p_visible;
+  -- WHERE is required: Supabase's API rejects UPDATE without one (pg_safeupdate).
+  update private.settings set results_visible = p_visible where id;
 end;
 $$;
 
