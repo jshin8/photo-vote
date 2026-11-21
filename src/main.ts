@@ -175,9 +175,9 @@ async function refresh() {
 
 function render() {
   const hasName = Boolean(state.name)
-  $('#whoami').hidden = !hasName
+  $('#whoami').hidden = !hasName || state.resultsVisible
   $('#whoami-name').textContent = state.name
-  nameStep.hidden = hasName
+  nameStep.hidden = hasName || state.resultsVisible
 
   voteSection.hidden = !hasName || state.resultsVisible
   resultsSection.hidden = !state.resultsVisible

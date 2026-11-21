@@ -192,9 +192,13 @@ button.thumb {
 .admin-item img { width: 4rem; height: 4rem; object-fit: cover; border-radius: 6px; }
 .voters { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.875rem; }
 
+/* Phones: name and count on the first line, bar underneath, thumbnail spanning both. */
 @media (max-width: 480px) {
-  .results-list li { grid-template-columns: 3rem 1fr auto; }
-  .track { grid-column: 2 / -1; }
+  .results-list li { grid-template-columns: 3rem 1fr auto; row-gap: 0.35rem; }
+  .results-list .thumb { grid-row: 1 / span 2; }
+  .results-list .name { grid-column: 2; grid-row: 1; }
+  .results-list .count { grid-column: 3; grid-row: 1; }
+  .results-list .track { grid-column: 2 / -1; grid-row: 2; }
 }
 
 /* ---------- Photo viewer ---------- */
