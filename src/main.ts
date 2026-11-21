@@ -12,6 +12,34 @@ const EXTENSIONS: Record<string, string> = {
   'image/gif': 'gif',
 }
 
+// Photos are shrunk in the browser before upload so storage and bandwidth stay
+// small (a 4 MB phone photo becomes ~200-400 KB). Re-encoding also drops EXIF
+// metadata such as GPS location.
+const MAX_DIMENSION = 1600
+const JPEG_QUALITY = 0.82
+
+async function shrinkImage(file: File): Promise<Blob> {
+  // Redrawing an animated GIF would keep only its first frame, so upload it as-is.
+  if (file.type === 'image/gif') return file
+
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+  const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height))
+  const canvas = el('canvas', {
+    width: Math.round(bitmap.width * scale),
+    height: Math.round(bitmap.height * scale),
+  })
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#fff' // JPEG has no transparency; avoid black behind transparent PNGs
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY))
+  if (!blob) throw new Error('Could not encode image')
+  // Never upload something bigger than the original (e.g. an already-small PNG).
+  return blob.size < file.size || !EXTENSIONS[file.type] ? blob : file
+}
+
 // "One vote per browser": a random id kept in localStorage. The database's
 // unique constraint on votes.voter_id enforces one vote per id.
 const VOTER_KEY = 'photo-vote:voter-id'
@@ -48,16 +76,27 @@ form.addEventListener('submit', async (e) => {
 
   if (!name) return (submitStatus.textContent = 'Please enter a name.')
   if (!file || !file.size) return (submitStatus.textContent = 'Please choose a photo.')
-  const ext = EXTENSIONS[file.type]
-  if (!ext) return (submitStatus.textContent = 'Photo must be JPEG, PNG, WebP or GIF.')
-  if (file.size > MAX_BYTES) return (submitStatus.textContent = 'Photo must be 5 MB or smaller.')
+  if (!file.type.startsWith('image/')) return (submitStatus.textContent = 'Please choose an image file.')
 
   const button = form.querySelector('button')!
   button.disabled = true
-  submitStatus.textContent = 'Uploading…'
+  submitStatus.textContent = 'Preparing photo…'
   try {
+    let photo: Blob
+    try {
+      photo = await shrinkImage(file)
+    } catch (err) {
+      // The browser couldn't decode it (e.g. an unusual format). Fall back to the original.
+      console.warn('Resize failed, uploading original', err)
+      photo = file
+    }
+    const ext = EXTENSIONS[photo.type]
+    if (!ext) return (submitStatus.textContent = 'Photo must be JPEG, PNG, WebP or GIF.')
+    if (photo.size > MAX_BYTES) return (submitStatus.textContent = 'Photo must be 5 MB or smaller.')
+
+    submitStatus.textContent = 'Uploading…'
     const path = `${crypto.randomUUID()}.${ext}`
-    const upload = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type })
+    const upload = await supabase.storage.from(BUCKET).upload(path, photo, { contentType: photo.type })
     if (upload.error) throw upload.error
 
     const insert = await supabase.from('entries').insert({ name, photo_path: path })
