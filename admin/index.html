@@ -45,6 +45,11 @@
         <section>
           <h2>Add a photo</h2>
           <form id="add-form">
+            <fieldset class="choice">
+              <legend>Category</legend>
+              <label><input type="radio" name="category" value="entree" required /> Entrée</label>
+              <label><input type="radio" name="category" value="dessert" required /> Dessert</label>
+            </fieldset>
             <label>
               Name
               <input name="name" type="text" maxlength="60" required />
@@ -61,7 +66,7 @@
         <section>
           <h2>Photos and votes <span id="total" class="muted"></span></h2>
           <p class="status" id="list-status" role="status"></p>
-          <ul id="admin-list"></ul>
+          <div id="admin-categories"></div>
         </section>
       </div>
     </main>

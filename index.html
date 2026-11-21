@@ -31,15 +31,18 @@
       </section>
 
       <section id="vote" hidden>
-        <h2>Vote for your favourite</h2>
+        <nav class="tabs" aria-label="Categories">
+          <a href="#vote-entree" data-category="entree">Entrées <span class="tick"></span></a>
+          <a href="#vote-dessert" data-category="dessert">Desserts <span class="tick"></span></a>
+        </nav>
         <p class="status" id="vote-status" role="status"></p>
-        <div id="entries" class="grid"></div>
+        <div id="vote-categories"></div>
       </section>
 
       <section id="results" hidden>
         <h2>Results</h2>
         <p class="status" id="results-status" role="status"></p>
-        <ol id="results-list"></ol>
+        <div id="results-categories"></div>
       </section>
     </main>
 

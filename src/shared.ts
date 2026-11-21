@@ -6,6 +6,12 @@ export const EXTENSIONS: Record<string, string> = {
   'image/gif': 'gif',
 }
 
+export type Category = 'entree' | 'dessert'
+export const CATEGORIES: { id: Category; label: string; singular: string }[] = [
+  { id: 'entree', label: 'Entrées', singular: 'entrée' },
+  { id: 'dessert', label: 'Desserts', singular: 'dessert' },
+]
+
 export const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel)!
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}) {

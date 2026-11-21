@@ -1,8 +1,8 @@
 import './style.css'
 import { BUCKET, isConfigured, photoUrl, supabase } from './supabase'
-import { $, el, EXTENSIONS, MAX_BYTES, poll, shrinkImage } from './shared'
+import { $, CATEGORIES, el, EXTENSIONS, MAX_BYTES, poll, shrinkImage, type Category } from './shared'
 
-type AdminResult = { entry_id: string; name: string; photo_path: string; votes: number; voters: string[] }
+type AdminResult = { entry_id: string; category: Category; name: string; photo_path: string; votes: number; voters: string[] }
 
 // The passcode is kept for this tab only and sent with every admin call; the
 // database checks it each time, so this page itself grants nothing.
@@ -19,7 +19,6 @@ const toggleButton = $<HTMLButtonElement>('#toggle-results')
 const addForm = $<HTMLFormElement>('#add-form')
 const addStatus = $('#add-status')
 const listStatus = $('#list-status')
-const listEl = $('#admin-list')
 const totalEl = $('#total')
 
 let resultsVisible = false
@@ -102,7 +101,9 @@ addForm.addEventListener('submit', async (e) => {
   e.preventDefault()
   const data = new FormData(addForm)
   const name = String(data.get('name') ?? '').trim()
+  const category = String(data.get('category') ?? '') as Category
   const file = data.get('photo') as File | null
+  if (!CATEGORIES.some((c) => c.id === category)) return (addStatus.textContent = 'Please choose a category.')
   if (!name) return (addStatus.textContent = 'Please enter a name.')
   if (!file || !file.size) return (addStatus.textContent = 'Please choose a photo.')
   if (!file.type.startsWith('image/')) return (addStatus.textContent = 'Please choose an image file.')
@@ -130,11 +131,19 @@ addForm.addEventListener('submit', async (e) => {
     const upload = await supabase.storage.from(BUCKET).upload(path, photo, { contentType: photo.type })
     if (upload.error) throw upload.error
 
-    const add = await supabase.rpc('admin_add_entry', { p_code: code, p_name: name, p_photo_path: path })
+    const add = await supabase.rpc('admin_add_entry', {
+      p_code: code,
+      p_name: name,
+      p_photo_path: path,
+      p_category: category,
+    })
     if (add.error) throw add.error
 
+    // Keep the chosen category selected so several photos in a row are quick to add.
     addForm.reset()
-    addStatus.textContent = `Added "${name}".`
+    addForm.querySelector<HTMLInputElement>(`input[name=category][value=${category}]`)!.checked = true
+    const label = CATEGORIES.find((c) => c.id === category)!.singular
+    addStatus.textContent = `Added "${name}" (${label}).`
     addForm.querySelector<HTMLInputElement>('input[name=name]')!.focus()
     await refresh()
   } catch (err) {
@@ -172,21 +181,37 @@ function renderList(results: AdminResult[]) {
   if (key === lastKey) return
   lastKey = key
 
-  const top = Math.max(0, ...results.map((r) => r.votes))
-  listEl.replaceChildren(
-    ...results.map((r) => {
-      const li = el('li', { className: 'admin-item' })
-      if (top > 0 && r.votes === top) li.classList.add('winner')
-      const info = el('div')
-      info.append(
-        el('strong', { textContent: r.name }),
-        el('span', { className: 'count', textContent: ` · ${r.votes} vote${r.votes === 1 ? '' : 's'}` }),
-        el('p', { className: 'voters', textContent: r.voters.length ? r.voters.join(', ') : 'No votes yet' }),
+  $('#admin-categories').replaceChildren(
+    ...CATEGORIES.map((c) => {
+      const items = results.filter((r) => r.category === c.id)
+      const votes = items.reduce((n, r) => n + r.votes, 0)
+      const section = el('section', { className: 'category' })
+      section.append(
+        el('h3', {
+          textContent: `${c.label} · ${items.length} photo${items.length === 1 ? '' : 's'}, ${votes} vote${votes === 1 ? '' : 's'}`,
+        }),
       )
-      const del = el('button', { type: 'button', className: 'secondary danger', textContent: 'Delete' })
-      del.addEventListener('click', () => deleteEntry(r))
-      li.append(el('img', { src: photoUrl(r.photo_path), alt: '' }), info, del)
-      return li
+      const list = el('ul', { className: 'admin-list' })
+      const top = Math.max(0, ...items.map((r) => r.votes))
+      list.append(
+        ...items.map((r) => {
+          const li = el('li', { className: 'admin-item' })
+          if (top > 0 && r.votes === top) li.classList.add('winner')
+          const info = el('div')
+          info.append(
+            el('strong', { textContent: r.name }),
+            el('span', { className: 'count', textContent: ` · ${r.votes} vote${r.votes === 1 ? '' : 's'}` }),
+            el('p', { className: 'voters', textContent: r.voters.length ? r.voters.join(', ') : 'No votes yet' }),
+          )
+          const del = el('button', { type: 'button', className: 'secondary danger', textContent: 'Delete' })
+          del.addEventListener('click', () => deleteEntry(r))
+          li.append(el('img', { src: photoUrl(r.photo_path), alt: '' }), info, del)
+          return li
+        }),
+      )
+      if (!items.length) list.append(el('li', { className: 'muted', textContent: `No ${c.label.toLowerCase()} yet.` }))
+      section.append(list)
+      return section
     }),
   )
 }

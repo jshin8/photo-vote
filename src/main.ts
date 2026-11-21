@@ -1,12 +1,12 @@
 import './style.css'
 import { isConfigured, photoUrl, supabase } from './supabase'
-import { $, el, poll } from './shared'
+import { $, CATEGORIES, el, poll, type Category } from './shared'
 
-type Entry = { id: string; name: string; photo_path: string }
-type Result = { entry_id: string; name: string; photo_path: string; votes: number }
+type Entry = { id: string; category: Category; name: string; photo_path: string }
+type Result = { entry_id: string; category: Category; name: string; photo_path: string; votes: number }
 
-// "One vote per browser": a random id kept in localStorage. The database keeps
-// one vote per id, which can be changed until the admin reveals the results.
+// "One vote per browser per category": a random id kept in localStorage. The
+// database keeps one vote per (id, category), changeable until results are revealed.
 const VOTER_KEY = 'photo-vote:voter-id'
 const NAME_KEY = 'photo-vote:voter-name'
 
@@ -22,7 +22,7 @@ function voterId(): string {
 const state = {
   name: localStorage.getItem(NAME_KEY) ?? '',
   entries: [] as Entry[],
-  myVote: null as string | null,
+  myVotes: {} as Partial<Record<Category, string>>,
   resultsVisible: false,
   results: [] as Result[],
   busy: false,
@@ -34,15 +34,35 @@ const nameForm = $<HTMLFormElement>('#name-form')
 const nameInput = nameForm.querySelector('input')!
 const voteSection = $('#vote')
 const voteStatus = $('#vote-status')
-const entriesEl = $('#entries')
 const resultsSection = $('#results')
 const resultsStatus = $('#results-status')
-const resultsEl = $('#results-list')
 const viewer = $<HTMLDialogElement>('#viewer')
 const viewerImg = viewer.querySelector('img')!
 const viewerName = viewer.querySelector<HTMLElement>('.viewer-name')!
 const viewerDetail = viewer.querySelector<HTMLElement>('.viewer-detail')!
 const viewerVote = viewer.querySelector<HTMLButtonElement>('.viewer-vote')!
+
+const entriesIn = (c: Category) => state.entries.filter((e) => e.category === c)
+const resultsIn = (c: Category) => state.results.filter((r) => r.category === c)
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+// One block per category, built once: heading, status line, grid / results list.
+const voteBlocks = new Map<Category, { status: HTMLElement; grid: HTMLElement; key: string }>()
+const resultBlocks = new Map<Category, { list: HTMLElement; key: string }>()
+for (const c of CATEGORIES) {
+  const section = el('section', { className: 'category', id: `vote-${c.id}` })
+  const status = el('p', { className: 'status' })
+  const grid = el('div', { className: 'grid' })
+  section.append(el('h2', { textContent: c.label }), status, grid)
+  $('#vote-categories').append(section)
+  voteBlocks.set(c.id, { status, grid, key: '' })
+
+  const rsection = el('section', { className: 'category' })
+  const list = el('ol', { className: 'results-list' })
+  rsection.append(el('h3', { textContent: c.label }), list)
+  $('#results-categories').append(rsection)
+  resultBlocks.set(c.id, { list, key: '' })
+}
 
 // ---------- Name ----------
 
@@ -52,8 +72,8 @@ nameForm.addEventListener('submit', async (e) => {
   if (!name) return
   state.name = name
   localStorage.setItem(NAME_KEY, name)
-  // Keep the name on an existing vote in sync.
-  if (state.myVote && !state.resultsVisible) await vote(state.myVote)
+  // Keep the name on existing votes in sync.
+  if (!state.resultsVisible) for (const id of Object.values(state.myVotes)) if (id) await vote(id)
   render()
 })
 
@@ -67,6 +87,8 @@ $('#change-name').addEventListener('click', () => {
 // ---------- Vote ----------
 
 async function vote(entryId: string) {
+  const entry = state.entries.find((e) => e.id === entryId)
+  if (!entry) return
   state.busy = true
   render()
   const { error } = await supabase.rpc('cast_vote', {
@@ -77,23 +99,28 @@ async function vote(entryId: string) {
   state.busy = false
   if (error) {
     console.error(error)
-    state.error = error.code === 'PV001' ? '' : 'Could not record your vote. Please try again.'
+    state.error =
+      error.code === 'PV001'
+        ? ''
+        : error.code === 'PV003'
+          ? 'That photo was removed. Please pick another.'
+          : 'Could not record your vote. Please try again.'
     await refresh()
     return
   }
   state.error = ''
-  state.myVote = entryId
+  state.myVotes[entry.category] = entryId
   render()
 }
 
 // ---------- Data ----------
 
-let loadedMyVote = false
+let loadedMyVotes = false
 
 async function refresh() {
   const [visible, entries] = await Promise.all([
     supabase.rpc('results_visible'),
-    supabase.from('entries').select('id, name, photo_path').order('created_at', { ascending: true }),
+    supabase.from('entries').select('id, category, name, photo_path').order('created_at', { ascending: true }),
   ])
   if (visible.error || entries.error) {
     console.error(visible.error ?? entries.error)
@@ -102,11 +129,13 @@ async function refresh() {
   state.resultsVisible = Boolean(visible.data)
   state.entries = entries.data as Entry[]
 
-  if (!loadedMyVote) {
+  if (!loadedMyVotes) {
     const mine = await supabase.rpc('my_vote', { p_voter_id: voterId() })
     if (!mine.error) {
-      state.myVote = (mine.data as string | null) ?? null
-      loadedMyVote = true
+      for (const row of mine.data as { category: Category; entry_id: string }[]) {
+        state.myVotes[row.category] = row.entry_id
+      }
+      loadedMyVotes = true
     }
   }
 
@@ -119,9 +148,6 @@ async function refresh() {
 
 // ---------- Render ----------
 
-let lastEntriesKey = ''
-let lastResultsKey = ''
-
 function render() {
   const hasName = Boolean(state.name)
   $('#whoami').hidden = !hasName
@@ -130,106 +156,135 @@ function render() {
 
   voteSection.hidden = !hasName || state.resultsVisible
   resultsSection.hidden = !state.resultsVisible
-  if (!hasName && !state.resultsVisible) return
 
-  if (!state.resultsVisible) renderVoting()
-  else renderResults()
+  if (state.resultsVisible) renderResults()
+  else if (hasName) renderVoting()
   if (viewer.open) renderViewer()
 }
 
-function voteLabel(id: string) {
-  return id === state.myVote ? '✓ Your vote' : state.myVote ? 'Switch to this' : 'Vote'
+function voteLabel(entry: { id: string; category: Category }) {
+  const mine = state.myVotes[entry.category]
+  return entry.id === mine ? '✓ Your vote' : mine ? 'Switch to this' : 'Vote'
 }
 
 function renderVoting() {
+  const done = CATEGORIES.filter((c) => state.myVotes[c.id]).length
   voteStatus.textContent =
     state.error ||
     (!state.entries.length
       ? 'No photos yet. Check back soon.'
-      : state.myVote
-        ? 'Thanks for voting! You can change your vote until the results are revealed.'
-        : 'Pick your favourite. You get one vote.')
+      : done === CATEGORIES.length
+        ? 'Thanks for voting! You can change your votes until the results are revealed.'
+        : 'You get one vote for entrées and one for desserts.')
 
-  // Rebuild cards only when entries change, so images don't flicker on each poll.
-  const key = JSON.stringify(state.entries)
-  if (key !== lastEntriesKey) {
-    lastEntriesKey = key
-    entriesEl.replaceChildren(
-      ...state.entries.map((entry, i) => {
-        const card = el('figure', { className: 'card' })
-        card.dataset.id = entry.id
-        const thumb = el('button', { type: 'button', className: 'thumb', ariaLabel: `View ${entry.name}` })
-        thumb.append(el('img', { src: photoUrl(entry.photo_path), alt: entry.name, loading: 'lazy' }))
-        thumb.addEventListener('click', () => openViewer('vote', i))
-        const button = el('button', { type: 'button', className: 'vote' })
-        button.addEventListener('click', () => vote(entry.id))
-        card.append(thumb, el('figcaption', { textContent: entry.name }), button)
-        return card
-      }),
-    )
+  for (const c of CATEGORIES) {
+    const block = voteBlocks.get(c.id)!
+    const entries = entriesIn(c.id)
+    const mine = entries.find((e) => e.id === state.myVotes[c.id])
+    block.status.textContent = !entries.length
+      ? `No ${c.label.toLowerCase()} yet.`
+      : mine
+        ? `✓ You voted for ${mine.name}.`
+        : `Pick your favourite ${c.singular}.`
+    $(`.tabs [data-category="${c.id}"] .tick`).textContent = mine ? '✓' : ''
+
+    // Rebuild cards only when entries change, so images don't flicker on each poll.
+    const key = JSON.stringify(entries)
+    if (key !== block.key) {
+      block.key = key
+      block.grid.replaceChildren(
+        ...entries.map((entry, i) => {
+          const card = el('figure', { className: 'card' })
+          card.dataset.id = entry.id
+          const thumb = el('button', { type: 'button', className: 'thumb', ariaLabel: `View ${entry.name}` })
+          thumb.append(el('img', { src: photoUrl(entry.photo_path), alt: entry.name, loading: 'lazy' }))
+          thumb.addEventListener('click', () => openViewer('vote', c.id, i))
+          const button = el('button', { type: 'button', className: 'vote' })
+          button.addEventListener('click', () => vote(entry.id))
+          card.append(thumb, el('figcaption', { textContent: entry.name }), button)
+          return card
+        }),
+      )
+    }
+
+    block.grid.querySelectorAll<HTMLElement>('.card').forEach((card) => {
+      const entry = { id: card.dataset.id!, category: c.id }
+      const isMine = entry.id === state.myVotes[c.id]
+      card.classList.toggle('voted', isMine)
+      const button = card.querySelector<HTMLButtonElement>('button.vote')!
+      button.textContent = voteLabel(entry)
+      button.classList.toggle('secondary', !isMine && Boolean(state.myVotes[c.id]))
+      button.disabled = state.busy || isMine
+    })
   }
-
-  entriesEl.querySelectorAll<HTMLElement>('.card').forEach((card) => {
-    const mine = card.dataset.id === state.myVote
-    card.classList.toggle('voted', mine)
-    const button = card.querySelector<HTMLButtonElement>('button.vote')!
-    button.textContent = voteLabel(card.dataset.id!)
-    button.classList.toggle('secondary', !mine && Boolean(state.myVote))
-    button.disabled = state.busy || mine
-  })
 }
 
 function renderResults() {
-  const myPick = state.results.find((r) => r.entry_id === state.myVote)
-  resultsStatus.textContent = myPick ? `Voting is closed. You voted for ${myPick.name}.` : 'Voting is closed.'
-
-  const key = JSON.stringify(state.results)
-  if (key === lastResultsKey) return
-  lastResultsKey = key
-
-  const max = Math.max(1, ...state.results.map((r) => r.votes))
-  const top = state.results[0]?.votes ?? 0
-  resultsEl.replaceChildren(
-    ...state.results.map((r, i) => {
-      const li = el('li')
-      if (top > 0 && r.votes === top) li.classList.add('winner')
-      const track = el('span', { className: 'track' })
-      const bar = el('span', { className: 'bar' })
-      bar.style.width = `${(r.votes / max) * 100}%`
-      track.append(bar)
-      const thumb = el('button', { type: 'button', className: 'thumb', ariaLabel: `View ${r.name}` })
-      thumb.append(el('img', { src: photoUrl(r.photo_path), alt: '' }))
-      thumb.addEventListener('click', () => openViewer('results', i))
-      li.append(
-        thumb,
-        el('span', { className: 'name', textContent: r.name }),
-        track,
-        el('span', { className: 'count', textContent: `${r.votes} vote${r.votes === 1 ? '' : 's'}` }),
-      )
-      return li
-    }),
+  const picks = CATEGORIES.map((c) => state.results.find((r) => r.entry_id === state.myVotes[c.id])).filter(
+    (r): r is Result => Boolean(r),
   )
+  resultsStatus.textContent = picks.length
+    ? `Voting is closed. You voted for ${picks.map((p) => p.name).join(' and ')}.`
+    : 'Voting is closed.'
+
+  for (const c of CATEGORIES) {
+    const block = resultBlocks.get(c.id)!
+    const results = resultsIn(c.id)
+    const key = JSON.stringify(results)
+    if (key === block.key) continue
+    block.key = key
+
+    if (!results.length) {
+      block.list.replaceChildren(el('li', { className: 'muted', textContent: `No ${c.label.toLowerCase()}.` }))
+      continue
+    }
+    const max = Math.max(1, ...results.map((r) => r.votes))
+    const top = results[0].votes
+    block.list.replaceChildren(
+      ...results.map((r, i) => {
+        const li = el('li')
+        if (top > 0 && r.votes === top) li.classList.add('winner')
+        const track = el('span', { className: 'track' })
+        const bar = el('span', { className: 'bar' })
+        bar.style.width = `${(r.votes / max) * 100}%`
+        track.append(bar)
+        const thumb = el('button', { type: 'button', className: 'thumb', ariaLabel: `View ${r.name}` })
+        thumb.append(el('img', { src: photoUrl(r.photo_path), alt: '' }))
+        thumb.addEventListener('click', () => openViewer('results', c.id, i))
+        li.append(
+          thumb,
+          el('span', { className: 'name', textContent: r.name }),
+          track,
+          el('span', { className: 'count', textContent: plural(r.votes, 'vote') }),
+        )
+        return li
+      }),
+    )
+  }
 }
 
 // ---------- Photo viewer ----------
-// Full-screen view of one photo. Swipe or use the arrows to move between photos.
+// Full-screen view of one photo. Swipe or use the arrows to move within its category.
 
 let viewMode: 'vote' | 'results' = 'vote'
+let viewCategory: Category = 'entree'
 let viewIndex = 0
 
 function viewItems() {
   return viewMode === 'vote'
-    ? state.entries.map((e) => ({ id: e.id, name: e.name, photo_path: e.photo_path, detail: '' }))
-    : state.results.map((r) => ({
+    ? entriesIn(viewCategory).map((e) => ({ ...e, detail: '' }))
+    : resultsIn(viewCategory).map((r) => ({
         id: r.entry_id,
+        category: r.category,
         name: r.name,
         photo_path: r.photo_path,
-        detail: `${r.votes} vote${r.votes === 1 ? '' : 's'}`,
+        detail: plural(r.votes, 'vote'),
       }))
 }
 
-function openViewer(mode: typeof viewMode, index: number) {
+function openViewer(mode: typeof viewMode, category: Category, index: number) {
   viewMode = mode
+  viewCategory = category
   viewIndex = index
   renderViewer()
   document.body.classList.add('no-scroll')
@@ -246,16 +301,18 @@ function renderViewer() {
   if (!viewerImg.src.endsWith(item.photo_path)) viewerImg.src = photoUrl(item.photo_path)
   viewerImg.alt = item.name
   viewerName.textContent = item.name
-  viewerDetail.textContent = [item.detail, `${viewIndex + 1} of ${items.length}`].filter(Boolean).join(' · ')
+  const label = CATEGORIES.find((c) => c.id === viewCategory)!.label
+  viewerDetail.textContent = [item.detail, `${label} ${viewIndex + 1} of ${items.length}`].filter(Boolean).join(' · ')
   viewerVote.hidden = viewMode !== 'vote'
-  viewerVote.textContent = voteLabel(item.id)
+  viewerVote.textContent = voteLabel(item)
   viewerVote.dataset.id = item.id
-  viewerVote.disabled = state.busy || item.id === state.myVote
+  viewerVote.disabled = state.busy || item.id === state.myVotes[item.category]
   viewer.querySelectorAll<HTMLElement>('.viewer-nav').forEach((b) => (b.hidden = items.length < 2))
 }
 
 function step(by: number) {
   const n = viewItems().length
+  if (!n) return
   viewIndex = (viewIndex + by + n) % n
   renderViewer()
 }
