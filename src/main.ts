@@ -308,9 +308,9 @@ function nameBlock(r: Result, isWinner = false) {
   const text = el('span', { className: 'text' })
   text.append(el('span', { className: 'dish', textContent: dishTitle(r) }))
   if (byLine(r)) text.append(el('span', { className: 'by', textContent: byLine(r) }))
-  span.append(text)
-  // Celebration GIF beside the first-place dish (each one, if tied).
+  // Celebration GIF to the left of the first-place dish name (each one, if tied).
   if (isWinner) span.append(el('img', { className: 'winner-gif', src: winnerGif, alt: '' }))
+  span.append(text)
   return span
 }
 

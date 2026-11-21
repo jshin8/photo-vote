@@ -217,8 +217,9 @@ button.thumb {
   .results-list .name { grid-column: 2 / -1; grid-row: 1; align-self: end; }
   .results-list .track { grid-column: 2; grid-row: 2; align-self: center; }
   .results-list .count { grid-column: 3; grid-row: 2; align-self: center; }
-  .results-list .name { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
-  .winner-gif { height: 4.5rem; }
+  .results-list .name { gap: 0.5rem; }
+  .winner-gif { height: 4rem; }
+  .results-list .name .dish { -webkit-line-clamp: 3; line-clamp: 3; }
 }
 
 /* ---------- Photo viewer ---------- */
