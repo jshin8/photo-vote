@@ -1,49 +1,14 @@
 import './style.css'
-import { BUCKET, isConfigured, photoUrl, supabase } from './supabase'
+import { isConfigured, photoUrl, supabase } from './supabase'
+import { $, el, poll } from './shared'
 
 type Entry = { id: string; name: string; photo_path: string }
 type Result = { entry_id: string; name: string; photo_path: string; votes: number }
 
-const MAX_BYTES = 5 * 1024 * 1024
-const EXTENSIONS: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
-}
-
-// Photos are shrunk in the browser before upload so storage and bandwidth stay
-// small (a 4 MB phone photo becomes ~200-400 KB). Re-encoding also drops EXIF
-// metadata such as GPS location.
-const MAX_DIMENSION = 1600
-const JPEG_QUALITY = 0.82
-
-async function shrinkImage(file: File): Promise<Blob> {
-  // Redrawing an animated GIF would keep only its first frame, so upload it as-is.
-  if (file.type === 'image/gif') return file
-
-  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
-  const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height))
-  const canvas = el('canvas', {
-    width: Math.round(bitmap.width * scale),
-    height: Math.round(bitmap.height * scale),
-  })
-  const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = '#fff' // JPEG has no transparency; avoid black behind transparent PNGs
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-  bitmap.close()
-
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY))
-  if (!blob) throw new Error('Could not encode image')
-  // Never upload something bigger than the original (e.g. an already-small PNG).
-  return blob.size < file.size || !EXTENSIONS[file.type] ? blob : file
-}
-
-// "One vote per browser": a random id kept in localStorage. The database's
-// unique constraint on votes.voter_id enforces one vote per id.
+// "One vote per browser": a random id kept in localStorage. The database keeps
+// one vote per id, which can be changed until the admin reveals the results.
 const VOTER_KEY = 'photo-vote:voter-id'
-const VOTED_KEY = 'photo-vote:voted-for'
+const NAME_KEY = 'photo-vote:voter-name'
 
 function voterId(): string {
   let id = localStorage.getItem(VOTER_KEY)
@@ -54,159 +19,191 @@ function voterId(): string {
   return id
 }
 
-const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!
-
-const form = $<HTMLFormElement>('#submit-form')
-const submitStatus = $('#submit-status')
-const voteStatus = $('#vote-status')
-const entriesEl = $('#entries')
-const resultsEl = $('#results-list')
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}) {
-  return Object.assign(document.createElement(tag), props)
+const state = {
+  name: localStorage.getItem(NAME_KEY) ?? '',
+  entries: [] as Entry[],
+  myVote: null as string | null,
+  resultsVisible: false,
+  results: [] as Result[],
+  busy: false,
+  error: '',
 }
 
-// ---------- Submit ----------
+const nameStep = $('#name-step')
+const nameForm = $<HTMLFormElement>('#name-form')
+const nameInput = nameForm.querySelector('input')!
+const voteSection = $('#vote')
+const voteStatus = $('#vote-status')
+const entriesEl = $('#entries')
+const resultsSection = $('#results')
+const resultsStatus = $('#results-status')
+const resultsEl = $('#results-list')
 
-form.addEventListener('submit', async (e) => {
+// ---------- Name ----------
+
+nameForm.addEventListener('submit', async (e) => {
   e.preventDefault()
-  const data = new FormData(form)
-  const name = String(data.get('name') ?? '').trim()
-  const file = data.get('photo') as File | null
+  const name = nameInput.value.trim()
+  if (!name) return
+  state.name = name
+  localStorage.setItem(NAME_KEY, name)
+  // Keep the name on an existing vote in sync.
+  if (state.myVote && !state.resultsVisible) await vote(state.myVote)
+  render()
+})
 
-  if (!name) return (submitStatus.textContent = 'Please enter a name.')
-  if (!file || !file.size) return (submitStatus.textContent = 'Please choose a photo.')
-  if (!file.type.startsWith('image/')) return (submitStatus.textContent = 'Please choose an image file.')
-
-  const button = form.querySelector('button')!
-  button.disabled = true
-  submitStatus.textContent = 'Preparing photo…'
-  try {
-    let photo: Blob
-    try {
-      photo = await shrinkImage(file)
-    } catch (err) {
-      // The browser couldn't decode it (e.g. an unusual format). Fall back to the original.
-      console.warn('Resize failed, uploading original', err)
-      photo = file
-    }
-    const ext = EXTENSIONS[photo.type]
-    if (!ext) return (submitStatus.textContent = 'Photo must be JPEG, PNG, WebP or GIF.')
-    if (photo.size > MAX_BYTES) return (submitStatus.textContent = 'Photo must be 5 MB or smaller.')
-
-    submitStatus.textContent = 'Uploading…'
-    const path = `${crypto.randomUUID()}.${ext}`
-    const upload = await supabase.storage.from(BUCKET).upload(path, photo, { contentType: photo.type })
-    if (upload.error) throw upload.error
-
-    const insert = await supabase.from('entries').insert({ name, photo_path: path })
-    if (insert.error) throw insert.error
-
-    form.reset()
-    submitStatus.textContent = 'Thanks! Your entry was submitted.'
-    await refresh()
-  } catch (err) {
-    console.error(err)
-    submitStatus.textContent = 'Something went wrong. Please try again.'
-  } finally {
-    button.disabled = false
-  }
+$('#change-name').addEventListener('click', () => {
+  nameInput.value = state.name
+  state.name = ''
+  render()
+  nameInput.focus()
 })
 
 // ---------- Vote ----------
 
-async function loadEntries() {
-  const { data, error } = await supabase
-    .from('entries')
-    .select('id, name, photo_path')
-    .order('created_at', { ascending: true })
-  if (error) {
-    console.error(error)
-    voteStatus.textContent = 'Could not load entries.'
-    return
-  }
-  renderEntries(data as Entry[])
-}
-
-function renderEntries(entries: Entry[]) {
-  const votedFor = localStorage.getItem(VOTED_KEY)
-  voteStatus.textContent = votedFor
-    ? 'You have already voted. Thanks!'
-    : entries.length
-      ? 'Pick your favourite. You get one vote.'
-      : 'No entries yet. Be the first to submit one!'
-
-  entriesEl.replaceChildren(
-    ...entries.map((entry) => {
-      const card = el('figure', { className: 'card' })
-      if (entry.id === votedFor) card.classList.add('voted')
-      card.append(
-        el('img', { src: photoUrl(entry.photo_path), alt: entry.name, loading: 'lazy' }),
-        el('figcaption', { textContent: entry.name }),
-      )
-      const button = el('button', {
-        type: 'button',
-        textContent: entry.id === votedFor ? 'Your vote' : 'Vote',
-        disabled: Boolean(votedFor),
-      })
-      button.addEventListener('click', () => vote(entry.id))
-      card.append(button)
-      return card
-    }),
-  )
-}
-
 async function vote(entryId: string) {
-  entriesEl.querySelectorAll('button').forEach((b) => (b.disabled = true))
-  const { error } = await supabase.from('votes').insert({ entry_id: entryId, voter_id: voterId() })
-  if (error && error.code !== '23505') {
-    // 23505 = unique violation: this browser already voted. Anything else is a real failure.
-    console.error(error)
-    voteStatus.textContent = 'Could not record your vote. Please try again.'
-    entriesEl.querySelectorAll('button').forEach((b) => (b.disabled = false))
-    return
-  }
-  if (!error) localStorage.setItem(VOTED_KEY, entryId)
-  else localStorage.setItem(VOTED_KEY, localStorage.getItem(VOTED_KEY) ?? 'unknown')
-  await refresh()
-}
-
-// ---------- Results ----------
-
-async function loadResults() {
-  const { data, error } = await supabase.rpc('results')
+  state.busy = true
+  render()
+  const { error } = await supabase.rpc('cast_vote', {
+    p_voter_id: voterId(),
+    p_voter_name: state.name,
+    p_entry_id: entryId,
+  })
+  state.busy = false
   if (error) {
     console.error(error)
-    resultsEl.replaceChildren(el('li', { textContent: 'Could not load results.' }))
+    state.error = error.code === 'PV001' ? '' : 'Could not record your vote. Please try again.'
+    await refresh()
     return
   }
-  const results = data as Result[]
-  const max = Math.max(1, ...results.map((r) => r.votes))
+  state.error = ''
+  state.myVote = entryId
+  render()
+}
+
+// ---------- Data ----------
+
+let loadedMyVote = false
+
+async function refresh() {
+  const [visible, entries] = await Promise.all([
+    supabase.rpc('results_visible'),
+    supabase.from('entries').select('id, name, photo_path').order('created_at', { ascending: true }),
+  ])
+  if (visible.error || entries.error) {
+    console.error(visible.error ?? entries.error)
+    return
+  }
+  state.resultsVisible = Boolean(visible.data)
+  state.entries = entries.data as Entry[]
+
+  if (!loadedMyVote) {
+    const mine = await supabase.rpc('my_vote', { p_voter_id: voterId() })
+    if (!mine.error) {
+      state.myVote = (mine.data as string | null) ?? null
+      loadedMyVote = true
+    }
+  }
+
+  if (state.resultsVisible) {
+    const results = await supabase.rpc('results')
+    if (!results.error) state.results = results.data as Result[]
+  }
+  render()
+}
+
+// ---------- Render ----------
+
+let lastEntriesKey = ''
+let lastResultsKey = ''
+
+function render() {
+  const hasName = Boolean(state.name)
+  $('#whoami').hidden = !hasName
+  $('#whoami-name').textContent = state.name
+  nameStep.hidden = hasName
+
+  voteSection.hidden = !hasName || state.resultsVisible
+  resultsSection.hidden = !state.resultsVisible
+  if (!hasName && !state.resultsVisible) return
+
+  if (!state.resultsVisible) renderVoting()
+  else renderResults()
+}
+
+function renderVoting() {
+  voteStatus.textContent =
+    state.error ||
+    (!state.entries.length
+      ? 'No photos yet. Check back soon.'
+      : state.myVote
+        ? 'Thanks for voting! You can change your vote until the results are revealed.'
+        : 'Pick your favourite. You get one vote.')
+
+  // Rebuild cards only when entries change, so images don't flicker on each poll.
+  const key = JSON.stringify(state.entries)
+  if (key !== lastEntriesKey) {
+    lastEntriesKey = key
+    entriesEl.replaceChildren(
+      ...state.entries.map((entry) => {
+        const card = el('figure', { className: 'card' })
+        card.dataset.id = entry.id
+        const button = el('button', { type: 'button' })
+        button.addEventListener('click', () => vote(entry.id))
+        card.append(
+          el('img', { src: photoUrl(entry.photo_path), alt: entry.name, loading: 'lazy' }),
+          el('figcaption', { textContent: entry.name }),
+          button,
+        )
+        return card
+      }),
+    )
+  }
+
+  entriesEl.querySelectorAll<HTMLElement>('.card').forEach((card) => {
+    const mine = card.dataset.id === state.myVote
+    card.classList.toggle('voted', mine)
+    const button = card.querySelector('button')!
+    button.textContent = mine ? '✓ Your vote' : state.myVote ? 'Switch to this' : 'Vote'
+    button.classList.toggle('secondary', !mine && Boolean(state.myVote))
+    button.disabled = state.busy || mine
+  })
+}
+
+function renderResults() {
+  const myPick = state.results.find((r) => r.entry_id === state.myVote)
+  resultsStatus.textContent = myPick ? `Voting is closed. You voted for ${myPick.name}.` : 'Voting is closed.'
+
+  const key = JSON.stringify(state.results)
+  if (key === lastResultsKey) return
+  lastResultsKey = key
+
+  const max = Math.max(1, ...state.results.map((r) => r.votes))
+  const top = state.results[0]?.votes ?? 0
   resultsEl.replaceChildren(
-    ...results.map((r) => {
+    ...state.results.map((r) => {
       const li = el('li')
+      if (top > 0 && r.votes === top) li.classList.add('winner')
+      const track = el('span', { className: 'track' })
       const bar = el('span', { className: 'bar' })
       bar.style.width = `${(r.votes / max) * 100}%`
+      track.append(bar)
       li.append(
-        el('img', { src: photoUrl(r.photo_path), alt: '', loading: 'lazy' }),
+        el('img', { src: photoUrl(r.photo_path), alt: '' }),
         el('span', { className: 'name', textContent: r.name }),
-        el('span', { className: 'track' }),
+        track,
         el('span', { className: 'count', textContent: `${r.votes} vote${r.votes === 1 ? '' : 's'}` }),
       )
-      li.querySelector('.track')!.append(bar)
       return li
     }),
   )
 }
 
-async function refresh() {
-  await Promise.all([loadEntries(), loadResults()])
-}
-
-$('#refresh').addEventListener('click', loadResults)
+// ---------- Start ----------
 
 if (isConfigured) {
-  refresh()
+  render()
+  poll(refresh, 5000)
 } else {
   $('#setup-warning').hidden = false
 }

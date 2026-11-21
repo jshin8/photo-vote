@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Photo Vote · Admin</title>
+  </head>
+  <body>
+    <header>
+      <h1>Photo Vote · Admin</h1>
+      <p class="muted">
+        <a href="../">View voting page</a>
+        <button id="logout" type="button" class="link" hidden>Log out</button>
+      </p>
+    </header>
+
+    <main>
+      <p id="setup-warning" class="notice" hidden>
+        Supabase isn't configured. Copy <code>.env.example</code> to <code>.env.local</code> and fill it in.
+      </p>
+
+      <section id="login" hidden>
+        <h2>Admin login</h2>
+        <form id="login-form">
+          <label>
+            Passcode
+            <input name="code" type="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit">Log in</button>
+          <p class="status" id="login-status" role="status"></p>
+        </form>
+      </section>
+
+      <div id="dashboard" hidden>
+        <section>
+          <h2>Results visibility</h2>
+          <div class="toggle-row">
+            <p id="visibility-status" class="notice"></p>
+            <button id="toggle-results" type="button"></button>
+          </div>
+          <p class="muted">While results are hidden, voters can vote and change their vote. Showing results closes voting and shows everyone the counts. Voter names stay visible only to you.</p>
+        </section>
+
+        <section>
+          <h2>Add a photo</h2>
+          <form id="add-form">
+            <label>
+              Name
+              <input name="name" type="text" maxlength="60" required />
+            </label>
+            <label>
+              Photo
+              <input name="photo" type="file" accept="image/*" required />
+            </label>
+            <button type="submit">Add photo</button>
+            <p class="status" id="add-status" role="status"></p>
+          </form>
+        </section>
+
+        <section>
+          <h2>Photos and votes <span id="total" class="muted"></span></h2>
+          <p class="status" id="list-status" role="status"></p>
+          <ul id="admin-list"></ul>
+        </section>
+      </div>
+    </main>
+
+    <script type="module" src="/src/admin.ts"></script>
+  </body>
+</html>
